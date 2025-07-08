@@ -1,0 +1,18 @@
+{
+  "name": "cmake-cargo",
+  "version": "0.0.0",
+  "description": "Cargo bridge for CMake",
+  "files": [
+    "*.cmake"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/cmake-cargo.git"
+  },
+  "author": "Holepunch",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/cmake-cargo/issues"
+  },
+  "homepage": "https://github.com/holepunchto/cmake-cargo#readme"
+}
