@@ -173,6 +173,14 @@ function(add_crate_target target target_directory manifest_path)
 
     if(WIN32)
       set(artifact "${name}.lib")
+
+      target_link_libraries(
+        ${name}
+        INTERFACE
+          ntdll
+          userenv
+          ws2_32
+      )
     else()
       set(artifact "lib${name}.a")
     endif()
