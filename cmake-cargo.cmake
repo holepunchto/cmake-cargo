@@ -27,7 +27,7 @@ endfunction()
 function(rust_vendor result)
   rust_os(os)
 
-  if(os MATCHES "darwin")
+  if(os MATCHES "darwin|ios")
     set(vendor "apple")
   elseif(os MATCHES "windows")
     set(vendor "pc")
@@ -70,12 +70,29 @@ function(rust_cpu result)
   set(${result} ${cpu} PARENT_SCOPE)
 endfunction()
 
+function(rust_env result)
+  set(env "")
+
+  if(APPLE AND CMAKE_OSX_SYSROOT MATCHES "iPhoneSimulator")
+    set(env "sim")
+  endif()
+
+  set(${result} ${env} PARENT_SCOPE)
+endfunction()
+
 function(rust_target result)
   rust_os(os)
   rust_vendor(vendor)
   rust_cpu(cpu)
+  rust_env(env)
 
-  set(${result} "${cpu}-${vendor}-${os}" PARENT_SCOPE)
+  set(target ${cpu}-${vendor}-${os})
+
+  if(env)
+    set(target ${target}-${env})
+  endif()
+
+  set(${result} ${target} PARENT_SCOPE)
 endfunction()
 
 function(add_crate)
