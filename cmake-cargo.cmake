@@ -8,36 +8,6 @@ function(find_cargo result)
   return(PROPAGATE ${result})
 endfunction()
 
-function(rust_os result)
-  set(os ${CMAKE_SYSTEM_NAME})
-
-  if(NOT os)
-    set(os ${CMAKE_HOST_SYSTEM_NAME})
-  endif()
-
-  string(TOLOWER "${os}" os)
-
-  if(NOT os MATCHES "android|linux|ios|darwin|windows")
-    message(FATAL_ERROR "Unknown OS '${os}'")
-  endif()
-
-  set(${result} ${os} PARENT_SCOPE)
-endfunction()
-
-function(rust_vendor result)
-  rust_os(os)
-
-  if(os MATCHES "darwin|ios")
-    set(vendor "apple")
-  elseif(os MATCHES "windows")
-    set(vendor "pc")
-  else()
-    set(vendor "unknown")
-  endif()
-
-  set(${result} ${vendor} PARENT_SCOPE)
-endfunction()
-
 function(rust_cpu result)
   if(APPLE AND CMAKE_OSX_ARCHITECTURES)
     set(cpu ${CMAKE_OSX_ARCHITECTURES})
@@ -58,16 +28,54 @@ function(rust_cpu result)
   if(cpu MATCHES "arm64|aarch64")
     set(cpu "aarch64")
   elseif(cpu MATCHES "armv7-a|armeabi-v7a")
-    set(cpu "arm")
+    set(cpu "armv7")
   elseif(cpu MATCHES "x64|x86_64|amd64")
     set(cpu "x86_64")
   elseif(cpu MATCHES "x86|i386|i486|i586|i686")
-    set(cpu "x86")
+    set(cpu "i686")
   else()
     message(FATAL_ERROR "Unknown CPU '${cpu}'")
   endif()
 
   set(${result} ${cpu} PARENT_SCOPE)
+endfunction()
+
+function(rust_os result)
+  rust_cpu(cpu)
+
+  set(os ${CMAKE_SYSTEM_NAME})
+
+  if(NOT os)
+    set(os ${CMAKE_HOST_SYSTEM_NAME})
+  endif()
+
+  string(TOLOWER "${os}" os)
+
+  if(os MATCHES "android")
+    if(cpu MATCHES "armv7")
+      set(os "androideabi")
+    endif()
+  elseif(NOT os MATCHES "linux|ios|darwin|windows")
+    message(FATAL_ERROR "Unknown OS '${os}'")
+  endif()
+
+  set(${result} ${os} PARENT_SCOPE)
+endfunction()
+
+function(rust_vendor result)
+  rust_os(os)
+
+  if(os MATCHES "darwin|ios")
+    set(vendor "apple")
+  elseif(os MATCHES "android")
+    set(vendor "linux")
+  elseif(os MATCHES "windows")
+    set(vendor "pc")
+  else()
+    set(vendor "unknown")
+  endif()
+
+  set(${result} ${vendor} PARENT_SCOPE)
 endfunction()
 
 function(rust_env result)
@@ -87,9 +95,9 @@ function(rust_env result)
 endfunction()
 
 function(rust_target result)
+  rust_cpu(cpu)
   rust_os(os)
   rust_vendor(vendor)
-  rust_cpu(cpu)
   rust_env(env)
 
   set(target ${cpu}-${vendor}-${os})
