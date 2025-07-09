@@ -75,6 +75,10 @@ function(rust_env result)
 
   if(APPLE AND CMAKE_OSX_SYSROOT MATCHES "iPhoneSimulator")
     set(env "sim")
+  elseif(LINUX)
+    set(env "gnu")
+  elseif(MSVC)
+    set(env "msvc")
   endif()
 
   set(${result} ${env} PARENT_SCOPE)
