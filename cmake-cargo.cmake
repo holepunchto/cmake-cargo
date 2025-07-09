@@ -71,9 +71,11 @@ function(rust_cpu result)
 endfunction()
 
 function(rust_env result)
+  rust_cpu(cpu)
+
   set(env "")
 
-  if(APPLE AND CMAKE_OSX_SYSROOT MATCHES "iPhoneSimulator")
+  if(APPLE AND CMAKE_OSX_SYSROOT MATCHES "iPhoneSimulator" AND cpu MATCHES "aarch64")
     set(env "sim")
   elseif(LINUX)
     set(env "gnu")
