@@ -126,18 +126,20 @@ function(add_crate)
 endfunction()
 
 function(add_crate_package package target_directory)
+  string(JSON manifest_path GET "${package}" "manifest_path")
+
   string(JSON len LENGTH "${package}" "targets")
 
   foreach(i RANGE ${len})
     if(NOT i EQUAL len)
       string(JSON target GET "${package}" "targets" ${i})
 
-      add_crate_target("${target}" "${target_directory}")
+      add_crate_target("${target}" "${target_directory}" "${manifest_path}")
     endif()
   endforeach()
 endfunction()
 
-function(add_crate_target target target_directory)
+function(add_crate_target target target_directory manifest_path)
   string(JSON name GET "${target}" "name")
   string(JSON kind GET "${target}" "kind" "0")
 
@@ -157,17 +159,30 @@ function(add_crate_target target target_directory)
     message(FATAL_ERROR "Unknown Cargo target kind '${kind}'")
   endif()
 
-  rust_target(output)
+  rust_target(target)
 
-  set(output "${target_directory}/${output}")
+  set(output "${target_directory}/${target}")
+  set(debug_output "${output}/debug/${artifact}")
+  set(release_output "${output}/release/${artifact}")
 
   set_target_properties(
     ${name}
     PROPERTIES
     IMPORTED_CONFIGURATIONS "DEBUG;RELEASE"
-    IMPORTED_LOCATION_DEBUG "${output}/debug/${artifact}"
-    IMPORTED_LOCATION_RELEASE "${output}/release/${artifact}"
+    IMPORTED_LOCATION_DEBUG "${debug_output}"
+    IMPORTED_LOCATION_RELEASE "${release_output}"
     MAP_IMPORTED_CONFIG_MINSIZEREL Release
     MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
   )
+
+  cmake_path(GET manifest_path PARENT_PATH working_directory)
+
+  add_custom_target(
+    ${name}_build
+    COMMAND ${cargo} build --target ${target} $<$<NOT:$<CONFIG:Debug>>:--release>
+    WORKING_DIRECTORY ${working_directory}
+    BYPRODUCTS "$<IF:$<CONFIG:Debug>,${debug_output},${release_output}>"
+  )
+
+  add_dependencies(${name} ${name}_build)
 endfunction()
