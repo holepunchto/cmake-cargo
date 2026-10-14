@@ -33,6 +33,8 @@ function(rust_cpu result)
     set(cpu "x86_64")
   elseif(cpu MATCHES "x86|i386|i486|i586|i686")
     set(cpu "i686")
+  elseif(cpu MATCHES "wasm32")
+    set(cpu "wasm32")
   else()
     message(FATAL_ERROR "Unknown CPU '${cpu}'")
   endif()
@@ -55,6 +57,8 @@ function(rust_os result)
     if(cpu MATCHES "armv7")
       set(os "androideabi")
     endif()
+  elseif(os MATCHES "wasi")
+    set(os "wasip1")
   elseif(NOT os MATCHES "linux|ios|darwin|windows")
     message(FATAL_ERROR "Unknown OS '${os}'")
   endif()
@@ -71,6 +75,8 @@ function(rust_vendor result)
     set(vendor "linux")
   elseif(os MATCHES "windows")
     set(vendor "pc")
+  elseif(os MATCHES "wasi")
+    set(vendor "")
   else()
     set(vendor "unknown")
   endif()
@@ -100,7 +106,13 @@ function(rust_target result)
   rust_vendor(vendor)
   rust_env(env)
 
-  set(target ${cpu}-${vendor}-${os})
+  set(target ${cpu})
+
+  if(vendor)
+    set(target ${target}-${vendor})
+  endif()
+
+  set(target ${target}-${os})
 
   if(env)
     set(target ${target}-${env})
@@ -115,7 +127,7 @@ function(add_crate)
   )
 
   cmake_parse_arguments(
-    PARSE_ARGV 1 ARGV "" "${one_value_keywords}" ""
+    PARSE_ARGV 0 ARGV "" "${one_value_keywords}" ""
   )
 
   find_cargo(cargo)
@@ -126,9 +138,16 @@ function(add_crate)
     set(ARGV_MANIFEST "${CMAKE_CURRENT_LIST_DIR}/Cargo.toml")
   endif()
 
-  set(manifest "${ARGV_MANIFEST}")
+  file(REAL_PATH "${ARGV_MANIFEST}" manifest)
 
-  cmake_path(REPLACE_FILENAME manifest Cargo.lock OUTPUT_VARIABLE lock)
+  execute_process(
+    COMMAND ${cargo} locate-project --workspace --message-format plain --manifest-path "${manifest}"
+    OUTPUT_VARIABLE workspace_manifest
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY
+  )
+
+  cmake_path(REPLACE_FILENAME workspace_manifest Cargo.lock OUTPUT_VARIABLE lock)
 
   if(NOT EXISTS ${lock})
     execute_process(
@@ -150,8 +169,12 @@ function(add_crate)
   foreach(i RANGE ${len})
     if(NOT i EQUAL len)
       string(JSON package GET "${metadata}" "packages" ${i})
+      string(JSON manifest_path GET "${package}" "manifest_path")
 
-      add_crate_package("${package}" "${target_directory}")
+      # Cargo lists every member of the workspace, not just the given package.
+      if(manifest_path STREQUAL manifest)
+        add_crate_package("${package}" "${target_directory}")
+      endif()
     endif()
   endforeach()
 endfunction()
