@@ -147,6 +147,8 @@ function(add_crate)
     COMMAND_ERROR_IS_FATAL ANY
   )
 
+  cmake_path(CONVERT "${workspace_manifest}" TO_CMAKE_PATH_LIST workspace_manifest NORMALIZE)
+
   cmake_path(REPLACE_FILENAME workspace_manifest Cargo.lock OUTPUT_VARIABLE lock)
 
   if(NOT EXISTS ${lock})
@@ -164,24 +166,34 @@ function(add_crate)
 
   string(JSON target_directory GET "${metadata}" "target_directory")
 
+  cmake_path(CONVERT "${target_directory}" TO_CMAKE_PATH_LIST target_directory NORMALIZE)
+
   string(JSON len LENGTH "${metadata}" "packages")
+
+  set(found OFF)
 
   foreach(i RANGE ${len})
     if(NOT i EQUAL len)
       string(JSON package GET "${metadata}" "packages" ${i})
       string(JSON manifest_path GET "${package}" "manifest_path")
 
+      cmake_path(CONVERT "${manifest_path}" TO_CMAKE_PATH_LIST manifest_path NORMALIZE)
+
       # Cargo lists every member of the workspace, not just the given package.
       if(manifest_path STREQUAL manifest)
-        add_crate_package("${package}" "${target_directory}")
+        add_crate_package("${package}" "${target_directory}" "${manifest_path}")
+
+        set(found ON)
       endif()
     endif()
   endforeach()
+
+  if(NOT found)
+    message(FATAL_ERROR "No Cargo package found for '${manifest}'")
+  endif()
 endfunction()
 
-function(add_crate_package package target_directory)
-  string(JSON manifest_path GET "${package}" "manifest_path")
-
+function(add_crate_package package target_directory manifest_path)
   string(JSON len LENGTH "${package}" "targets")
 
   foreach(i RANGE ${len})
