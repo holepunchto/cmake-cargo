@@ -121,6 +121,54 @@ function(rust_target result)
   set(${result} ${target} PARENT_SCOPE)
 endfunction()
 
+function(rust_linker_config target result)
+  set(config "")
+
+  # Rust drives the Apple and MSVC linkers itself, but links every other target
+  # with the host C compiler unless told otherwise.
+  if(NOT APPLE AND NOT MSVC AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+    set(args "")
+
+    if(CMAKE_C_COMPILER_TARGET)
+      list(APPEND args "--target=${CMAKE_C_COMPILER_TARGET}")
+    endif()
+
+    if(CMAKE_SYSROOT)
+      list(APPEND args "--sysroot=${CMAKE_SYSROOT}")
+    endif()
+
+    separate_arguments(flags NATIVE_COMMAND "${CMAKE_C_FLAGS} ${CMAKE_SHARED_LINKER_FLAGS}")
+
+    list(APPEND args ${flags})
+
+    set(rustflags "")
+
+    foreach(arg IN LISTS args)
+      toml_string("-Clink-arg=${arg}" arg)
+
+      list(APPEND rustflags "${arg}")
+    endforeach()
+
+    list(JOIN rustflags ", " rustflags)
+
+    toml_string("${CMAKE_C_COMPILER}" linker)
+
+    list(APPEND config
+      --config "target.${target}.linker=${linker}"
+      --config "target.${target}.rustflags=[${rustflags}]"
+    )
+  endif()
+
+  set(${result} ${config} PARENT_SCOPE)
+endfunction()
+
+function(toml_string value result)
+  string(REPLACE "\\" "\\\\" value "${value}")
+  string(REPLACE "\"" "\\\"" value "${value}")
+
+  set(${result} "\"${value}\"" PARENT_SCOPE)
+endfunction()
+
 function(add_crate)
   set(one_value_keywords
     MANIFEST
@@ -249,13 +297,16 @@ function(add_crate_target target target_directory manifest_path)
     MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
   )
 
+  rust_linker_config(${target} config)
+
   cmake_path(GET manifest_path PARENT_PATH working_directory)
 
   add_custom_target(
     ${name}_build
-    COMMAND ${cargo} build --target ${target} $<$<NOT:$<CONFIG:Debug>>:--release>
+    COMMAND ${cargo} build --target ${target} ${config} $<$<NOT:$<CONFIG:Debug>>:--release>
     WORKING_DIRECTORY ${working_directory}
     BYPRODUCTS "$<IF:$<CONFIG:Debug>,${debug_output},${release_output}>"
+    VERBATIM
   )
 
   add_dependencies(${name} ${name}_build)
