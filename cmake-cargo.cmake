@@ -8,6 +8,14 @@ function(find_cargo result)
   return(PROPAGATE ${result})
 endfunction()
 
+function(find_rustc result)
+  find_program(rustc NAMES rustc REQUIRED)
+
+  set(${result} ${rustc})
+
+  return(PROPAGATE ${result})
+endfunction()
+
 function(rust_cpu result)
   if(APPLE AND CMAKE_OSX_ARCHITECTURES)
     set(cpu ${CMAKE_OSX_ARCHITECTURES})
@@ -119,6 +127,57 @@ function(rust_target result)
   endif()
 
   set(${result} ${target} PARENT_SCOPE)
+endfunction()
+
+# Rust only reports the native libraries that a static library needs when it
+# builds one, so build an empty one to find those of the standard library. The
+# C runtime that Rust asks for with `/defaultlib` is left to the toolchain.
+function(rust_native_static_libs target working_directory result)
+  find_rustc(rustc)
+
+  set(probe "${CMAKE_CURRENT_BINARY_DIR}/cmake-cargo/${target}")
+
+  file(WRITE "${probe}/probe.rs" "")
+
+  execute_process(
+    COMMAND ${rustc} --crate-type staticlib --target ${target} --print native-static-libs -o "${probe}/probe" "${probe}/probe.rs"
+    WORKING_DIRECTORY "${working_directory}"
+    ERROR_VARIABLE output
+    COMMAND_ERROR_IS_FATAL ANY
+  )
+
+  if(NOT output MATCHES "native-static-libs:([^\n]*)")
+    message(FATAL_ERROR "No native libraries reported for '${target}'")
+  endif()
+
+  separate_arguments(args NATIVE_COMMAND "${CMAKE_MATCH_1}")
+
+  set(libs "")
+
+  while(args)
+    list(POP_FRONT args arg)
+
+    if(arg STREQUAL "-framework")
+      list(POP_FRONT args framework)
+
+      list(APPEND libs "-framework ${framework}")
+    elseif(arg MATCHES "^-l(.+)$")
+      list(APPEND libs "${CMAKE_MATCH_1}")
+    elseif(arg MATCHES "^(.+)\\.lib$")
+      list(APPEND libs "${CMAKE_MATCH_1}")
+    elseif(NOT arg MATCHES "^/defaultlib:")
+      list(APPEND libs "${arg}")
+    endif()
+  endwhile()
+
+  list(REMOVE_DUPLICATES libs)
+
+  # The Apple linker always links libSystem and warns when asked to again.
+  if(APPLE)
+    list(REMOVE_ITEM libs System)
+  endif()
+
+  set(${result} ${libs} PARENT_SCOPE)
 endfunction()
 
 function(rust_linker_config target result)
@@ -266,14 +325,6 @@ function(add_crate_target target target_directory manifest_path)
 
     if(WIN32)
       set(artifact "${name}.lib")
-
-      target_link_libraries(
-        ${name}
-        INTERFACE
-          ntdll
-          userenv
-          ws2_32
-      )
     else()
       set(artifact "lib${name}.a")
     endif()
@@ -297,9 +348,13 @@ function(add_crate_target target target_directory manifest_path)
     MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
   )
 
-  rust_linker_config(${target} config)
-
   cmake_path(GET manifest_path PARENT_PATH working_directory)
+
+  rust_native_static_libs(${target} "${working_directory}" libs)
+
+  target_link_libraries(${name} INTERFACE ${libs})
+
+  rust_linker_config(${target} config)
 
   add_custom_target(
     ${name}_build
