@@ -362,6 +362,7 @@ function(add_crate_target target target_directory manifest_path)
     WORKING_DIRECTORY ${working_directory}
     BYPRODUCTS "$<IF:$<CONFIG:Debug>,${debug_output},${release_output}>"
     VERBATIM
+    COMMAND_EXPAND_LISTS
   )
 
   add_dependencies(${name} ${name}_build)
