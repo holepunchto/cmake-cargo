@@ -2,9 +2,29 @@
   "name": "cmake-cargo",
   "version": "0.1.2",
   "description": "Cargo bridge for CMake",
+  "imports": {
+    "fs": {
+      "bare": "bare-fs",
+      "default": "fs"
+    },
+    "path": {
+      "bare": "bare-path",
+      "default": "path"
+    }
+  },
   "files": [
     "*.cmake"
   ],
+  "workspaces": [
+    "test/fixtures/*"
+  ],
+  "scripts": {
+    "format": "prettier --write . && lunte --fix",
+    "lint": "prettier --check . && lunte",
+    "test": "npm run test:bare && npm run test:node",
+    "test:bare": "brittle-bare --coverage test.js",
+    "test:node": "brittle-node --coverage test.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/holepunchto/cmake-cargo.git"
@@ -14,5 +34,15 @@
   "bugs": {
     "url": "https://github.com/holepunchto/cmake-cargo/issues"
   },
-  "homepage": "https://github.com/holepunchto/cmake-cargo#readme"
+  "homepage": "https://github.com/holepunchto/cmake-cargo#readme",
+  "devDependencies": {
+    "bare-fs": "^4.4.4",
+    "bare-make": "^2.1.2",
+    "bare-path": "^3.0.0",
+    "brittle": "^3.7.0",
+    "cmake-bare": "^1.13.0",
+    "lunte": "^1.8.0",
+    "prettier": "^3.3.3",
+    "prettier-config-holepunch": "^2.0.0"
+  }
 }

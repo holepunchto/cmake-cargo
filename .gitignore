@@ -1,3 +1,8 @@
 sandbox/
+build/
+prebuilds/
+coverage/
+target/
 node_modules/
 package-lock.json
+Cargo.lock

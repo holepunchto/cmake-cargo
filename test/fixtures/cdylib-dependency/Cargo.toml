@@ -1,0 +1,10 @@
+[package]
+name = "answer"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+dependency = { path = "dependency" }
